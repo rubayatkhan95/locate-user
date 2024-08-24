@@ -1,8 +1,19 @@
-import React, {useEffect, useState} from 'react';
-import {View, Text, Button} from 'react-native';
-import MapView, {Circle} from 'react-native-maps';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, Button, Text } from 'react-native';
+import MapView, { Circle, Marker } from 'react-native-maps';
 import GetLocation from 'react-native-get-location';
+import Slider from "react-native-slider";
+import Geocoder from "react-native-geocoding";
+let defaultRegion = {
+  address: "",
+  lat: 23.7844567,
+  lng: 90.3956586,
+  radius: 3,
+};
 
+let prevSelectedAddress = defaultRegion
+let sliderInitial = prevSelectedAddress.radius > 10 ? 10 : prevSelectedAddress.radius
+Geocoder.init("AIzaSyD8powhFel75G_xGbe6P7MKNKRvGcuvbP0")
 const MapComponent = () => {
   const [userLocation, setUserLocation] = useState({
     latitude: 23.7808186,
@@ -10,7 +21,9 @@ const MapComponent = () => {
     latitudeDelta: 0.04,
     longitudeDelta: 0.05,
   });
+  const [geofenceRadius, setGeofenceRadius] = useState((prevSelectedAddress.radius > 10 ? 10 : prevSelectedAddress.radius) * 500)
 
+  const [address, setAddress] = useState("")
   const getCurrentLocationOfUser = () => {
     GetLocation.getCurrentPosition({
       enableHighAccuracy: true,
@@ -32,7 +45,7 @@ const MapComponent = () => {
         setUserLocation(locationObject);
       })
       .catch(error => {
-        const {code, message} = error;
+        const { code, message } = error;
         console.log(code, message);
       });
   };
@@ -47,7 +60,7 @@ const MapComponent = () => {
       return;
     }
     // You can use
-    dispatch({type: 'map_region', payload: {mapRegion: region}}); // if using useReducer
+    dispatch({ type: 'map_region', payload: { mapRegion: region } }); // if using useReducer
     // setMapRegionState(region); // if using useState
   };
 
@@ -58,24 +71,61 @@ const MapComponent = () => {
     };
   }, []);
 
+  const onChangeGeoFenceRadius = (radius) => {
+    setGeofenceRadius(radius * 1000);
+  }
+
+  const onPressMap = async (e) => {
+    const { longitude, latitude } = e.nativeEvent.coordinate
+    try {
+      const result = await Geocoder.from(latitude, longitude)
+      const address = result.results[0].formatted_address
+      setAddress(address)
+    } catch (error) {
+      console.log(error.message)
+    }
+  }
   return (
-    <View style={{flex: 1}}>
+    <View style={{ flex: 1 }}>
       <MapView
-        style={{flex: 1}}
-        //initialRegion={userLocation}
+        style={{ ...StyleSheet.absoluteFillObject, }}
         region={userLocation}
-        onRegionChange={onRegionChange}
-      />
-      <Circle
-        /// key = { (this.state.currentLongitude + this.state.currentLongitude).toString() }
-        center={userLocation}
-        radius={500}
-        strokeWidth={1}
-        strokeColor={'#1a66ff'}
-        fillColor={'rgba(230,238,255,0.5)'}
-        //onRegionChangeComplete = { this.onRegionChangeComplete.bind(this) }
-      />
-      <View style={{position: 'absolute', bottom: 10, right: 10}}>
+        onPress={onPressMap}
+      //   onRegionChange={onRegionChange}
+      >
+        <Marker coordinate={userLocation} tracksViewChanges={false}>
+        </Marker>
+        <Circle
+          center={userLocation}
+          radius={geofenceRadius}
+          strokeWidth={4}
+          strokeColor={"green"}
+        />
+      </MapView>
+
+      <View style={{ top: 30 }}>
+        <Slider
+          style={{
+            height: 20,
+            marginLeft: 15,
+            marginRight: 15,
+          }}
+          step={1}
+          maximumValue={10}
+          animationType={'spring'}
+          value={sliderInitial}
+          thumbTintColo={"green"}
+          minimumTrackTintColor={"green"}
+          maximumTrackTintColo={"grey"}
+          onValueChange={onChangeGeoFenceRadius}
+
+        />
+      </View>
+      {address !== "" &&
+        <View style={{ position: 'absolute', bottom: 40, right: 10 }}>
+          <Text style={{ color: "black", fontSize: 20, fontWeight: "bold", paddingBottom: 10 }}>Address : {address}</Text>
+        </View>}
+      <View style={{ position: 'absolute', bottom: 10, right: 10 }}>
         <Button
           title="Get Current Location"
           onPress={getCurrentLocationOfUser}
